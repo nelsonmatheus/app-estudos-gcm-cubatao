@@ -1,0 +1,5 @@
+# Configurações locais do Claude Code
+.claude/
+
+# Notas internas de trabalho (não publicar no Pages)
+contexto-gcm-cubatao-app.md
