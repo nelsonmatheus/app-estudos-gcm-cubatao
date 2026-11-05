@@ -747,6 +747,35 @@ function pushRow() {
     : st === "ready" ? `<button class="btn gold small" data-act="pushOn">${ico("bell", "s")}Ativar lembrete diário</button>` : "";
   return `<div class="set-row"><b>Lembrete diário</b><p class="hint">${hint}</p>${hours}${btns}</div>`;
 }
+// Convite na primeira abertura: aparece no Início, no máximo 2 vezes (a segunda, 3 dias depois de "Agora não").
+// A permissão do navegador só é pedida quando a pessoa toca em "Ativar" (exigência do iPhone e boa prática).
+const ASK_KEY = "cc-push-ask";
+let askHourSel = 19;
+function maybeAskPush() {
+  if (!window.Push || Push.status() !== "ready" || state.active || route !== "home") return;
+  let a; try { a = JSON.parse(localStorage.getItem(ASK_KEY)) || { n: 0, at: 0 }; } catch (e) { a = { n: 0, at: 0 }; }
+  if (a.n >= 2 || (a.n && Date.now() - a.at < 3 * 864e5)) return;
+  try { localStorage.setItem(ASK_KEY, JSON.stringify({ n: a.n + 1, at: Date.now() })); } catch (e) {}
+  askHourSel = Push.hour();
+  const left = daysLeft();
+  sheet({
+    title: "Quer um lembrete para estudar?",
+    body: `<p>Um aviso por dia, com uma frase de incentivo${left > 0 ? ` e quantos dias faltam para a prova (hoje, ${left})` : ""}. Se você já estudou no dia, ele não aparece.</p>
+      <p class="hint" style="margin:12px 0 6px">Melhor horário para você:</p>
+      <div class="seg" role="group" id="askHours">${PUSH_HOURS.map(h => `<button type="button" data-act="askHour" data-v="${h}" aria-pressed="${h === askHourSel}">${h}h</button>`).join("")}</div>`,
+    actions: [
+      { label: "Ativar lembrete", kind: "gold", icon: "bell", fn: async () => {
+        try { await Push.enable(askHourSel, pushCtx()); toast(`Lembrete ativado às ${askHourSel}h`); }
+        catch (e) { toast(e.message || "Não foi possível ativar"); }
+      } },
+      { label: "Agora não", kind: "ghost" }
+    ]
+  });
+}
+ACT.askHour = d => {
+  askHourSel = +d.v;
+  document.querySelectorAll("#askHours [data-act=askHour]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.v === askHourSel)));
+};
 ACT.pushOn = async () => {
   try { await Push.enable(Push.hour(), pushCtx()); toast(`Lembrete ativado às ${Push.hour()}h`); }
   catch (e) { toast(e.message || "Não foi possível ativar"); }
@@ -881,7 +910,7 @@ function renderPicker() {
       </button>`; }).join("")}</div>
     <p class="foot-note">Projeto pessoal de estudo, sem vínculo com as instituições ou bancas. Confira sempre o edital oficial.</p>`;
 }
-ACT.pickConcurso = d => { chosenBefore = true; if (!C || C.id !== d.id) { useConcurso(d.id); syncPush(true); } go("home"); };
+ACT.pickConcurso = d => { chosenBefore = true; if (!C || C.id !== d.id) { useConcurso(d.id); syncPush(true); } go("home"); setTimeout(maybeAskPush, 700); };
 ACT.switchConcurso = () => go("concursos");
 
 const focusLabel = () => {
@@ -923,6 +952,7 @@ let chosenBefore = !!bootId || CONCURSOS.some(c => load(c.store));
 useConcurso(CONCURSOS.some(c => c.id === bootId) ? bootId : CONCURSOS[0].id);
 render();
 syncPush();
+setTimeout(maybeAskPush, 900);
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => {
     const hadController = !!navigator.serviceWorker.controller;
