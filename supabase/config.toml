@@ -1,0 +1,8 @@
+# As duas funções não usam o JWT do Supabase:
+# push-subscribe é chamada pelo app (sem login) e valida origem e endpoint;
+# push-send é chamada pelo pg_cron e exige o cabeçalho x-cron-secret.
+[functions.push-subscribe]
+verify_jwt = false
+
+[functions.push-send]
+verify_jwt = false

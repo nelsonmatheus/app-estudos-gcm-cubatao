@@ -36,3 +36,8 @@ Fica só no aparelho, separado por concurso. Use Progresso > Ajustes > Exportar 
 Não altere enunciados à toa: o histórico de cada questão usa o hash do enunciado.
 
 Material de treino. Confira sempre a lei e o edital oficiais.
+
+LEMBRETE DIÁRIO (NOTIFICAÇÕES)
+Progresso > Ajustes > Lembrete diário: um aviso por dia no horário escolhido, com frase de incentivo, só se a
+pessoa ainda não estudou. Precisa de um backend gratuito no Supabase: siga supabase/LEIA-ME-NOTIFICACOES.md e
+preencha push-config.js. Enquanto push-config.js estiver vazio, a opção fica escondida.

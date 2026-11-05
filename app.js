@@ -449,6 +449,7 @@ function finish() {
   lastResult = { mode: s.mode, title: s.title, items, ok, sec, sim, full };
   state.active = null;
   save();
+  syncPush();
   if (route === "quiz") render(true); else go("quiz");
 }
 
@@ -712,6 +713,7 @@ function renderStats() {
       <div class="set-row"><b>Backup</b><p class="hint">O progresso fica só neste aparelho. Exporte para não perder.</p>
         <div class="row"><button class="btn line small" data-act="exportData">${ico("down", "s")}Exportar</button><button class="btn line small" data-act="importData">${ico("up", "s")}Importar</button></div>
         <input type="file" id="importFile" accept="application/json,.json" hidden></div>
+      ${pushRow()}
       ${isStandalone() ? "" : `<div class="set-row"><b>Aplicativo</b><button class="btn line small" data-act="install">${ico("plus", "s")}Instalar na tela inicial</button></div>`}
       <div class="set-row"><button class="btn danger small" data-act="resetData">${ico("trash", "s")}Apagar meu progresso</button></div>
     </div>
@@ -719,6 +721,48 @@ function renderStats() {
   wireChart();
   $("importFile").onchange = onImportFile;
 }
+// ── Lembrete diário (push.js + supabase/functions) ───────────────────────
+const PUSH_HOURS = [7, 12, 19, 21];
+function pushCtx() {
+  const days = Object.keys(state.days).filter(k => state.days[k] > 0).sort();
+  const w = weakestTopic();
+  return { concurso: C.id, concursoName: C.name, examDate: EXAM_DATE ? dayKey(EXAM_DATE) : null,
+    lastStudy: days[days.length - 1] || null, streak: streak(), weak: w ? TP[w.i].name : null, goal: state.prefs.goal };
+}
+const syncPush = force => { if (window.Push) Push.sync(pushCtx(), force); };
+function pushRow() {
+  if (!window.Push) return "";
+  const st = Push.status();
+  if (st === "off-config") return "";
+  const hint = {
+    "ios-install": "No iPhone, os lembretes só funcionam com o app instalado na tela inicial (Safari › Compartilhar › Adicionar à Tela de Início).",
+    unsupported: "Este navegador não recebe notificações. Use o Chrome no Android ou o app instalado no iPhone.",
+    denied: "As notificações estão bloqueadas. Libere nas configurações do navegador ou do celular para este site.",
+    ready: "Um aviso por dia, no horário que você escolher, com uma frase de incentivo. Se você já estudou no dia, ele não aparece.",
+    on: `Ativo às ${Push.hour()}h. Se você já estudou no dia, o aviso não aparece.`
+  }[st];
+  const hours = (st === "on" || st === "ready") ? `<div class="seg" role="group">${PUSH_HOURS.map(h => `<button type="button" data-act="pushHour" data-v="${h}" aria-pressed="${Push.hour() === h}">${h}h</button>`).join("")}</div>` : "";
+  const btns = st === "on"
+    ? `<div class="row"><button class="btn line small" data-act="pushTest">${ico("bell", "s")}Testar aviso</button><button class="btn line small" data-act="pushOff">${ico("x", "s")}Desativar</button></div>`
+    : st === "ready" ? `<button class="btn gold small" data-act="pushOn">${ico("bell", "s")}Ativar lembrete diário</button>` : "";
+  return `<div class="set-row"><b>Lembrete diário</b><p class="hint">${hint}</p>${hours}${btns}</div>`;
+}
+ACT.pushOn = async () => {
+  try { await Push.enable(Push.hour(), pushCtx()); toast(`Lembrete ativado às ${Push.hour()}h`); }
+  catch (e) { toast(e.message || "Não foi possível ativar"); }
+  renderStats();
+};
+ACT.pushOff = async () => { await Push.disable(); toast("Lembrete desativado"); renderStats(); };
+ACT.pushHour = async d => {
+  try { await Push.setHour(+d.v, pushCtx()); if (Push.isOn()) toast(`Lembrete às ${d.v}h`); }
+  catch (e) { toast("Sem conexão: o horário muda quando voltar a internet"); }
+  renderStats();
+};
+ACT.pushTest = async () => {
+  try { await Push.test(`${C.name} · Central de Estudos`, "Assim vai chegar o seu lembrete. Bora estudar?"); }
+  catch (e) { toast("Não foi possível mostrar o aviso"); }
+};
+
 ACT.setPref = d => {
   state.prefs[d.k] = d.k === "goal" ? +d.v : d.v;
   save(); applyTheme(); renderStats();
@@ -837,7 +881,7 @@ function renderPicker() {
       </button>`; }).join("")}</div>
     <p class="foot-note">Projeto pessoal de estudo, sem vínculo com as instituições ou bancas. Confira sempre o edital oficial.</p>`;
 }
-ACT.pickConcurso = d => { chosenBefore = true; if (!C || C.id !== d.id) useConcurso(d.id); go("home"); };
+ACT.pickConcurso = d => { chosenBefore = true; if (!C || C.id !== d.id) { useConcurso(d.id); syncPush(true); } go("home"); };
 ACT.switchConcurso = () => go("concursos");
 
 const focusLabel = () => {
@@ -878,6 +922,7 @@ const bootId = (() => { try { return localStorage.getItem(ACTIVE_KEY); } catch (
 let chosenBefore = !!bootId || CONCURSOS.some(c => load(c.store));
 useConcurso(CONCURSOS.some(c => c.id === bootId) ? bootId : CONCURSOS[0].id);
 render();
+syncPush();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => {
     const hadController = !!navigator.serviceWorker.controller;
