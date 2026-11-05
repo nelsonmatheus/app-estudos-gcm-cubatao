@@ -1,5 +1,5 @@
 // Service worker · Central de Estudos (GCM Cubatão e PM-SP). Ao mudar qualquer arquivo, suba a versão do CACHE.
-const CACHE = "central-concursos-v6a";
+const CACHE = "central-concursos-v6b";
 const FILES = [
   "./", "./index.html", "./styles.css", "./app.js",
   "./data.js", "./bank-1.js", "./bank-2.js", "./bank-3.js", "./extras.js",

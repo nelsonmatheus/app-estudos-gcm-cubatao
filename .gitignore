@@ -3,3 +3,7 @@
 
 # Notas internas de trabalho (não publicar no Pages)
 contexto-gcm-cubatao-app.md
+
+# Supabase: segredo local e arquivos temporários da CLI
+supabase/.segredo-local.txt
+supabase/.temp/

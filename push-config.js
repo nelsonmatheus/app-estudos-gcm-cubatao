@@ -4,6 +4,6 @@
    - endpoint: URL da função push-subscribe, ex.: https://abcd1234.supabase.co/functions/v1/push-subscribe
    - vapidPublicKey: a chave PÚBLICA VAPID (a privada fica só nos segredos do Supabase). */
 window.PUSH_CONFIG = {
-  endpoint: "",
-  vapidPublicKey: ""
+  endpoint: "https://rueeyibvueukgsvfttmn.supabase.co/functions/v1/push-subscribe",
+  vapidPublicKey: "BIMlivFPUSFT94dQNyMxB-1kbCZQMbXYpKzH6pRiwCHnXkvIGCODjmRgLRKE_a1XX2r-cI5wMfuU_O1cBV2Nscc"
 };
