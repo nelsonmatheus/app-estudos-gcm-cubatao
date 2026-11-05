@@ -1,9 +1,9 @@
 // Service worker · Central de Estudos (GCM Cubatão e PM-SP). Ao mudar qualquer arquivo, suba a versão do CACHE.
-const CACHE = "central-concursos-v4b";
+const CACHE = "central-concursos-v5a";
 const FILES = [
   "./", "./index.html", "./styles.css", "./app.js",
   "./data.js", "./bank-1.js", "./bank-2.js", "./bank-3.js", "./extras.js",
-  "./pmsp-data.js", "./pmsp-port.js", "./pmsp-mat.js", "./pmsp-info.js", "./pmsp-cg-hist.js", "./pmsp-cg-geo.js", "./pmsp-adm.js", "./concursos.js",
+  "./pmsp-data.js", "./pmsp-port.js", "./pmsp-mat.js", "./pmsp-info.js", "./pmsp-cg-hist.js", "./pmsp-cg-geo.js", "./pmsp-adm.js", "./pmsp-mat2.js", "./pmsp-info2.js", "./pmsp-atual.js", "./pmsp-redacao.js", "./concursos.js",
   "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png",
   "./fonts/barlow-400.woff2", "./fonts/barlow-500.woff2", "./fonts/barlow-600.woff2", "./fonts/barlow-700.woff2",
   "./fonts/barlowcondensed-600.woff2", "./fonts/barlowcondensed-700.woff2"

@@ -11,7 +11,7 @@ Hoje cobre a **GCM Cubatão** e a **PM-SP Soldado**. Funciona sem internet e nã
 ### [Abrir o app](https://nelsonmatheus.github.io/central-de-estudos-concursos/)
 
 ![Concursos](https://img.shields.io/badge/concursos-2-f2b632?style=flat-square&labelColor=0a1424)
-![Questões](https://img.shields.io/badge/quest%C3%B5es-503-f2b632?style=flat-square&labelColor=0a1424)
+![Questões](https://img.shields.io/badge/quest%C3%B5es-508-f2b632?style=flat-square&labelColor=0a1424)
 ![Flashcards](https://img.shields.io/badge/flashcards-124-f2b632?style=flat-square&labelColor=0a1424)
 ![Macetes](https://img.shields.io/badge/macetes-109-f2b632?style=flat-square&labelColor=0a1424)
 ![Dependências](https://img.shields.io/badge/depend%C3%AAncias-0-f2b632?style=flat-square&labelColor=0a1424)
@@ -40,7 +40,7 @@ Deixei o projeto aberto porque ele pode ajudar de duas formas:
 | | GCM Cubatão | PM-SP Soldado |
 |---|---|---|
 | **Banca** | IBAM | Vunesp |
-| **Situação** | Prova em 20/12/2026 | Provisório: usa o edital de 2025 até sair o novo |
+| **Situação** | Prova em 20/12/2026 | Edital DP-4/321/26 · prova em 28/02/2027 |
 | **Conteúdo** | Conhecimentos Específicos (16 itens do edital) | Português, Matemática, Conhecimentos Gerais, Informática e Administração Pública |
 | **Simulado** | 15 questões, 4 alternativas, 79 min | 60 questões, 5 alternativas, 3 h (tempo estimado) |
 | **Nota** | 4 pontos por questão, até 60 | 1 ponto por questão, até 60 |
@@ -48,7 +48,7 @@ Deixei o projeto aberto porque ele pode ajudar de duas formas:
 | **Cartões** | 51 | 73 |
 | **Macetes** | 53 | 56 |
 
-Na GCM Cubatão, o app cobre só a parte que mais pesa na prova, 60 dos 100 pontos. Na PM-SP, cobre a prova objetiva; a dissertativa fica de fora.
+Na GCM Cubatão, o app cobre só a parte que mais pesa na prova, 60 dos 100 pontos. Na PM-SP, cobre a prova objetiva e traz as regras e macetes da redação (Edital DP-4/321/26).
 
 ## O que dá para fazer
 
@@ -194,7 +194,9 @@ A estrutura foi feita para receber outros concursos ou matérias. Para incluir u
 ├── bank-1, 2 e 3.js      GCM: banco de questões
 ├── extras.js             GCM: cartões adicionais e macetes
 ├── pmsp-data.js          PM-SP: matérias e base
-├── pmsp-port, mat e info.js    PM-SP: Português, Matemática e Informática
+├── pmsp-port, mat, mat2, info e info2.js    PM-SP: Português, Matemática e Informática
+├── pmsp-atual.js         PM-SP: Atualidades (mai–nov 2026)
+├── pmsp-redacao.js       PM-SP: cartões e macetes da redação
 ├── pmsp-cg-hist e cg-geo.js    PM-SP: Conhecimentos Gerais
 ├── pmsp-adm.js           PM-SP: Administração Pública
 ├── sw.js                 Funcionamento offline
@@ -207,7 +209,7 @@ A estrutura foi feita para receber outros concursos ou matérias. Para incluir u
 
 - **Conteúdo da apostila:** o conteúdo da GCM Cubatão, e o de Português, Matemática e Informática da PM-SP, foi escrito com base na apostila *Resumão GCM Cubatão 2026*, de Felipe Resumão (@feliperesumao). Ela é o material de estudo completo; este app é só um apoio para treinar.
 - **Demais matérias da PM-SP:** Conhecimentos Gerais e Administração Pública seguem o conteúdo programático do edital de 2025 e não foram tirados da apostila.
-- **PM-SP provisória:** matérias, pesos e tempo podem mudar quando sair o edital novo. O tempo de 3 horas é uma estimativa, porque a prova real inclui a dissertativa.
+- **PM-SP:** conteúdo alinhado ao Anexo B do Edital DP-4/321/26. O tempo de 3 horas do simulado é uma estimativa, porque as 5 horas da prova incluem a redação. Atualidades vem de notícias e precisa ser revisada perto da prova.
 - **Legislação:** o conteúdo pode ficar desatualizado. Confira sempre a norma vigente e o edital do seu concurso.
 - **Testes:** rodei os testes no Chromium e ainda não em um iPhone real.
 - **Fontes:** [Barlow](https://fonts.google.com/specimen/Barlow), de Jeremy Tribby, sob licença SIL Open Font.

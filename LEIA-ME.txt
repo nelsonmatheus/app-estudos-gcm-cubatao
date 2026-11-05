@@ -12,17 +12,19 @@ COMO FUNCIONA
 GCM CUBATÃO
 Prova em 20/12/2026. Simulado de 15 questões, 79 min, 4 pontos cada. O progresso antigo continua (mesma chave).
 
-PM-SP SOLDADO (PROVISÓRIO)
-Edital novo ainda não publicado. Estrutura do edital 2025 (DP-2/321/25, Vunesp): Português 20, Matemática 15,
-Conhecimentos Gerais 15, Informática 5, Administração Pública 5 = 60 questões, 5 alternativas, mínimo 30 pontos.
-O simulado completo segue essa proporção e agrupa por matéria. Tempo estimado: 3 h (a prova real tem 5 h com a dissertativa).
-Português, Matemática e Informática foram escritos a partir da apostila. Conhecimentos Gerais e Administração Pública
-seguem o conteúdo programático do edital 2025 (História geral e do Brasil, Geografia; CF arts. 5º, 14-16, 37-38, 42, 144;
-Constituição de SP; Lei 12.527/2011 e Decreto SP 68.155/2023), no estilo e nas pegadinhas da Vunesp.
-Quando sair o edital novo: ajuste pmsp-data.js (matérias) e o bloco "pmsp" de concursos.js (pesos, tempo, data).
+PM-SP ALUNO-SOLDADO · EDITAL DP-4/321/26 (VUNESP, publicado em 05/11/2026)
+Prova em 28/02/2027 (tarde), 5 h para objetiva + redação. Inscrições de 9/11 a 22/12/2026.
+Objetiva: Português 20, Matemática 15, Conhecimentos Gerais 15, Informática 5, Administração Pública 5 = 60 questões,
+5 alternativas, mínimo 30. Redação: dissertativo-argumentativa, até 30 linhas, 0 a 40, mínimo 20.
+O simulado completo segue essa proporção e agrupa por matéria. Tempo estimado de 3 h (sobram 2 h para a redação).
+Banco alinhado ao Anexo B: saíram do app ortografia/acentuação/sintaxe, juros/2º grau/probabilidade/estatística e
+segurança da informação/LGPD/hardware, que não estão no edital. Entraram raciocínio lógico, tabelas e gráficos,
+Windows 10, Office 2016 (inclusive PowerPoint), Google Workspace, Teams, Atualidades (mai–nov 2026) e regras da redação.
+Atualidades vem de notícias (pmsp-atual.js): revise perto da prova e acrescente fatos novos até a data.
 
 ARQUIVOS DO PM-SP
-pmsp-data.js (matérias e base), pmsp-port.js, pmsp-mat.js, pmsp-info.js, pmsp-cg-hist.js, pmsp-cg-geo.js, pmsp-adm.js.
+pmsp-data.js (matérias e base), pmsp-port.js, pmsp-mat.js, pmsp-mat2.js, pmsp-info.js, pmsp-info2.js,
+pmsp-cg-hist.js, pmsp-cg-geo.js, pmsp-atual.js, pmsp-adm.js e pmsp-redacao.js (cartões e macetes da redação).
 Formato das questões: [subtema, enunciado, [CORRETA, errada, errada, errada, errada], explicação].
 
 NOVO CONCURSO
