@@ -1,23 +1,36 @@
-GCM CUBATÃO · CENTRAL DE ESTUDOS (v3)
+CENTRAL DE ESTUDOS · CONCURSOS (v4)
+GCM Cubatão (IBAM) e PM-SP Soldado (Vunesp) no mesmo app.
 
-O QUE TEM
-- Início: contagem regressiva para a prova (20/12/2026), missão diária, sequência de dias e ponto fraco.
-- Simulado: 15 questões de assuntos variados, 79 min, sem gabarito até entregar. Dá para trocar resposta,
-  marcar questão, usar o mapa e continuar depois de fechar o app. Em branco conta como erro.
-- Questões: treino por assunto e artigo, inéditas, já erradas, revisão inteligente e caderno de erros.
-- Cartões, Macetes (com busca), Matérias e Progresso (gráficos, graduação, tema e meta diária).
+COMO FUNCIONA
+- Ao abrir, a primeira tela pergunta qual concurso você vai estudar. Dá para trocar depois pelo topo do Início
+  ou em Progresso > Ajustes.
+- Cada concurso tem matérias, simulado, caderno de erros, cartões, macetes e progresso próprios.
+- Foco de estudo: estude todas as matérias juntas ou marque só as que quiser. O foco vale para questões,
+  cartões, macetes, revisão inteligente e para o "simulado do foco".
+- A aparência (claro/escuro) vale para todos os concursos.
 
-INSTALAR NO IPHONE
-Publique TODOS os arquivos em HTTPS (GitHub Pages, Netlify, Vercel). Abra no Safari > Compartilhar >
-Adicionar à Tela de Início. Depois de aberto uma vez, funciona sem internet.
+GCM CUBATÃO
+Prova em 20/12/2026. Simulado de 15 questões, 79 min, 4 pontos cada. O progresso antigo continua (mesma chave).
+
+PM-SP SOLDADO (PROVISÓRIO)
+Edital novo ainda não publicado. Estrutura do edital 2025 (DP-2/321/25, Vunesp): Português 20, Matemática 15,
+Conhecimentos Gerais 15, Informática 5, Administração Pública 5 = 60 questões, 5 alternativas, mínimo 30 pontos.
+O simulado completo segue essa proporção e agrupa por matéria. Tempo estimado: 3 h (a prova real tem 5 h com a dissertativa).
+Português, Matemática e Informática foram escritos a partir da apostila. Conhecimentos Gerais e Administração Pública
+seguem o conteúdo programático do edital 2025 (História geral e do Brasil, Geografia; CF arts. 5º, 14-16, 37-38, 42, 144;
+Constituição de SP; Lei 12.527/2011 e Decreto SP 68.155/2023), no estilo e nas pegadinhas da Vunesp.
+Quando sair o edital novo: ajuste pmsp-data.js (matérias) e o bloco "pmsp" de concursos.js (pesos, tempo, data).
+
+ARQUIVOS DO PM-SP
+pmsp-data.js (matérias e base), pmsp-port.js, pmsp-mat.js, pmsp-info.js, pmsp-cg-hist.js, pmsp-cg-geo.js, pmsp-adm.js.
+Formato das questões: [subtema, enunciado, [CORRETA, errada, errada, errada, errada], explicação].
+
+NOVO CONCURSO
+Crie os arquivos de dados, carregue-os no index.html antes de concursos.js, adicione um item em concursos.js,
+inclua os arquivos em sw.js e suba a versão de CACHE.
 
 PROGRESSO
-Fica só no aparelho. Use Progresso > Ajustes > Exportar para guardar um backup.
-Quem já usava a versão anterior mantém o progresso: a chave de armazenamento não mudou.
-
-AMPLIAR O BANCO
-Crie bank-4.js no formato do bank-3.js, carregue no index.html antes de extras.js, inclua em sw.js e
-suba a versão de CACHE no sw.js. Cartões novos entram sempre no FIM da lista (o progresso usa o índice).
+Fica só no aparelho, separado por concurso. Use Progresso > Ajustes > Exportar (o backup é do concurso aberto).
 Não altere enunciados à toa: o histórico de cada questão usa o hash do enunciado.
 
-Material de treino baseado na apostila. Confira sempre a lei e o edital oficiais.
+Material de treino. Confira sempre a lei e o edital oficiais.

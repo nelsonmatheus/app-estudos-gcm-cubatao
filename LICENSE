@@ -24,13 +24,13 @@ SOFTWARE.
 SCOPE OF THIS LICENSE / ESCOPO DESTA LICENCA
 
 This license covers the application code only: index.html, styles.css, app.js,
-sw.js, and manifest.webmanifest.
+concursos.js, sw.js, and manifest.webmanifest.
 
 It does NOT cover:
 
 - Study content (questions, flashcards, and study notes) in data.js, bank-1.js,
-  bank-2.js, bank-3.js, and extras.js. This content was written based on the
-  "Resumao GCM Cubatao 2026" study guide by Felipe Resumao and remains
-  all rights reserved. To reuse the code, replace this content with your own.
+  bank-2.js, bank-3.js, extras.js, and pmsp-*.js. Much of this content was written
+  based on the "Resumao GCM Cubatao 2026" study guide by Felipe Resumao, and all
+  of it remains all rights reserved. To reuse the code, replace this content with your own.
 - Fonts in the fonts/ folder (Barlow and Barlow Condensed), which are licensed
   under the SIL Open Font License 1.1.

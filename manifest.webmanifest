@@ -1,7 +1,7 @@
 {
-  "name": "GCM Cubatão · Central de Estudos",
-  "short_name": "GCM Cubatão",
-  "description": "Simulados, questões estilo IBAM, flashcards e macetes de Conhecimentos Específicos da GCM Cubatão 2026.",
+  "name": "Central de Estudos · Concursos",
+  "short_name": "Concursos",
+  "description": "Simulados, questões, flashcards e macetes para GCM Cubatão e PM-SP (Soldado).",
   "lang": "pt-BR",
   "start_url": "./",
   "scope": "./",

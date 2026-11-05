@@ -1,12 +1,12 @@
-/* GCM Cubatão · Central de Estudos (v3)
-   Vanilla JS, sem dependências. Toda a interface é renderizada em #view. */
+/* Central de Estudos · Concursos (v4)
+   Vanilla JS, sem dependências. Toda a interface é renderizada em #view.
+   Cada concurso vem de concursos.js; useConcurso() troca dados, regras, tema e progresso. */
 "use strict";
 
-// ── Constantes da prova (fonte: apostila, seção "A prova em números") ─────
-const EXAM_DATE = new Date(2026, 11, 20);
-const SIM_SIZE = 15, SIM_MINUTES = 79, POINTS_PER_Q = 4, TARGET_OK = 12, SAFE_OK = 13;
-const STORE = "gcm-cubatao-study-v2";
-const RANKS = [[0,"Recruta"],[50,"Aluno"],[120,"Guarda nível I"],[220,"Guarda nível II"],[350,"Guarda nível III"],[500,"Guarda nível IV"],[700,"Guarda nível V"],[950,"Guarda nível VI"],[1300,"Subinspetor"],[1800,"Inspetor"]];
+// ── Concurso ativo (preenchido por useConcurso) ───────────────────────────
+let C, EXAM_DATE, SIM_SIZE, SIM_MINUTES, POINTS_PER_Q, TARGET_OK, SAFE_OK, STORE, RANKS;
+let TP = [], CD = [], MC = [], ALL = [], BY_ID = new Map(), CARD_LIST = [];
+const ACTIVE_KEY = "cc-active", LETTERS = "ABCDE";
 
 // ── Utilidades ────────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -21,20 +21,20 @@ const load = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); 
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const hash = s => { let h = 5381; for (const c of s) h = (h * 33) ^ c.charCodeAt(0); return (h >>> 0).toString(36); };
-const topicName = i => TOPICS[i]?.name || "Específicos";
+const topicName = i => TP[i]?.name || "Geral";
 
 // ── Estado ────────────────────────────────────────────────────────────────
-const blank = () => ({ seen: [], known: [], review: [], h: {}, sims: [], answered: 0, correct: 0, days: {}, active: null, prefs: { theme: "auto", goal: 20 } });
+const blank = () => ({ seen: [], known: [], review: [], h: {}, sims: [], answered: 0, correct: 0, days: {}, active: null, prefs: { theme: "auto", goal: 20, focus: [] } });
 function hydrate(raw) {
   const s = Object.assign(blank(), raw || {});
   s.prefs = Object.assign(blank().prefs, s.prefs || {});
   for (const k of ["seen", "known", "review", "sims"]) if (!Array.isArray(s[k])) s[k] = [];
   if (!s.h || typeof s.h !== "object") s.h = {};
   if (!s.days || typeof s.days !== "object") s.days = {};
+  if (!Array.isArray(s.prefs.focus)) s.prefs.focus = [];
   return s;
 }
-const v1 = load("gcm-cubatao-study-v1") || {};
-let state = hydrate(load(STORE) || { seen: v1.seen, known: v1.known, review: v1.review });
+let state = hydrate(null);
 let saveWarned = false;
 function save() {
   try { localStorage.setItem(STORE, JSON.stringify(state)); }
@@ -43,12 +43,10 @@ function save() {
 }
 
 // ── Banco de questões ─────────────────────────────────────────────────────
-const ALL = [
-  ...QUESTIONS.map(x => ({ t: x.topic, art: "Geral", q: x.q, o: x.opts, w: x.why, a: x.a })),
-  ...BANK.map(x => ({ ...x, a: x.a ?? 0 }))
-].map(x => ({ ...x, id: hash(x.q) }));
-const BY_ID = new Map(ALL.map(q => [q.id, q]));
-const CARD_LIST = CARDS.map((c, i) => ({ ...c, id: i, ti: TOPICS.findIndex(t => t.name === c.topic) }));
+// Foco de estudo: lista vazia = todas as matérias juntas.
+const focusList = () => state.prefs.focus;
+const inFocus = t => !state.prefs.focus.length || state.prefs.focus.includes(+t);
+const focusPool = () => ALL.filter(q => inFocus(q.t));
 const correctText = q => q.o[q.a];
 
 const hist = id => state.h[id] || (state.h[id] = { s: 0, w: 0, r: 0, l: -1, due: 0 });
@@ -72,7 +70,7 @@ function record(q, ok) {
 }
 
 // ── Métricas ──────────────────────────────────────────────────────────────
-const daysLeft = () => { const t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((EXAM_DATE - t) / 864e5); };
+const daysLeft = () => { if (!EXAM_DATE) return null; const t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((EXAM_DATE - t) / 864e5); };
 const doneToday = () => state.days[dayKey()] || 0;
 function streak() {
   const d = new Date(); let n = 0;
@@ -88,9 +86,11 @@ function topicStats(i) {
 }
 const coverage = () => pct(ALL.filter(q => state.h[q.id]?.s).length, ALL.length);
 const accuracy = () => pct(state.correct, state.answered);
-const simAvg = () => { const s = state.sims.slice(-5); return s.length ? Math.round(s.reduce((a, x) => a + x.ok * POINTS_PER_Q, 0) / s.length) : null; };
+const fullSims = () => state.sims.filter(x => x.full !== false);
+const fmtMin = m => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? " " + pad2(m % 60) : ""}` : `${m} min`;
+const simAvg = () => { const s = fullSims().slice(-5); return s.length ? Math.round(s.reduce((a, x) => a + x.ok * POINTS_PER_Q, 0) / s.length) : null; };
 function weakestTopic() {
-  const list = TOPICS.map((_, i) => ({ i, ...topicStats(i) })).filter(x => x.tries >= 3).sort((a, b) => a.acc - b.acc);
+  const list = TP.map((_, i) => ({ i, ...topicStats(i) })).filter(x => x.tries >= 3).sort((a, b) => a.acc - b.acc);
   if (list.length && list[0].acc < 85) return list[0];
   return null;
 }
@@ -124,15 +124,17 @@ function sheet({ title, body = "", actions = [] }) {
 $("sheet").addEventListener("click", e => { if (e.target === $("sheet")) $("sheet").close(); });
 
 // ── Roteador ──────────────────────────────────────────────────────────────
-const ROUTES = { home: renderHome, cards: renderCards, quiz: renderQuiz, topics: renderTopics, errors: renderErrors, stats: renderStats, notes: renderNotes };
+const ROUTES = { concursos: renderPicker, home: renderHome, cards: renderCards, quiz: renderQuiz, topics: renderTopics, errors: renderErrors, stats: renderStats, notes: renderNotes };
 const TAB_OF = { home: "home", cards: "cards", notes: "cards", quiz: "quiz", errors: "errors", stats: "stats", topics: "home" };
-let route = "home";
-function currentRoute() { const r = location.hash.slice(1); return ROUTES[r] ? r : "home"; }
+let route = "concursos";
+// Sem hash (abrir o app) = tela de escolha do concurso.
+function currentRoute() { const r = location.hash.slice(1); if (!r) return "concursos"; return ROUTES[r] ? r : "home"; }
 function go(r) { if (location.hash === "#" + r) render(true); else location.hash = r; }
 function render(changed = false) {
   route = currentRoute();
   document.querySelectorAll(".tab").forEach(t => { if (t.dataset.tab === TAB_OF[route]) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current"); });
   document.body.classList.toggle("focus", route === "quiz" && !!state.active);
+  document.body.classList.toggle("picker", route === "concursos");
   ROUTES[route]();
   if (changed) {
     view.classList.remove("enter"); void view.offsetWidth; view.classList.add("enter");
@@ -163,16 +165,18 @@ function resumeBanner() {
 }
 function renderHome() {
   const left = daysLeft(), st = streak(), goal = state.prefs.goal, today = doneToday(), reached = today >= goal;
-  const errs = errorList().length, weak = weakestTopic(), avg = simAvg(), last = state.sims[state.sims.length - 1];
+  const errs = errorList().length, weak = weakestTopic(), avg = simAvg(), last = fullSims().slice(-1)[0];
   const remaining = Math.max(goal - today, 0);
-  const countBlock = left > 0
-    ? `<div class="count">${left}</div><div class="count-txt"><b>${left === 1 ? "dia para" : "dias para"}<br>a prova</b><span>20 dez 2026 · IBAM</span></div>`
+  const countBlock = left == null
+    ? `<div class="count-txt"><b>Edital ainda<br>não publicado</b><span>${esc(C.dateLabel)} · comece agora</span></div>`
+    : left > 0
+    ? `<div class="count">${left}</div><div class="count-txt"><b>${left === 1 ? "dia para" : "dias para"}<br>a prova</b><span>${esc(C.dateLabel)}</span></div>`
     : left === 0
       ? `<div class="count-txt"><b>Hoje é o dia da prova</b><span>Boa prova. Confie no treino.</span></div>`
-      : `<div class="count-txt"><b>Prova realizada</b><span>20 dez 2026 · IBAM</span></div>`;
+      : `<div class="count-txt"><b>Prova realizada</b><span>${esc(C.dateLabel)}</span></div>`;
   view.innerHTML = `
     <div class="topbar">
-      <div class="id"><svg class="logo" aria-hidden="true"><use href="#i-shield"/></svg><div><b>GCM Cubatão</b><small>Central de estudos</small></div></div>
+      <button class="id switch" data-act="switchConcurso" aria-label="Trocar de concurso"><svg class="logo" aria-hidden="true"><use href="#i-${C.logo}"/></svg><div><b>${esc(C.name)}</b><small>Trocar concurso${ico("down", "xs")}</small></div></button>
       <span class="chip ${st ? "on" : ""}" title="Dias seguidos de estudo">${ico("flame", "s")}${plural(st, "dia", "dias")}</span>
     </div>
     ${resumeBanner()}
@@ -188,7 +192,7 @@ function renderHome() {
     </section>
     <button class="card sim-card" data-act="startSim">
       <span class="tile-ico">${ico("clock")}</span>
-      <span class="txt"><b>Simulado de prova</b><small>${last ? `Último: ${last.ok * POINTS_PER_Q} de ${last.n * POINTS_PER_Q} pontos` : `${SIM_SIZE} questões · ${SIM_MINUTES} min · ${SIM_SIZE * POINTS_PER_Q} pontos`}</small></span>
+      <span class="txt"><b>Simulado de prova</b><small>${last ? `Último: ${last.ok * POINTS_PER_Q} de ${last.n * POINTS_PER_Q} pontos` : `${SIM_SIZE} questões · ${fmtMin(SIM_MINUTES)} · ${SIM_SIZE * POINTS_PER_Q} pontos`}</small></span>
       ${ico("right", "chev")}
     </button>
     </div><div class="stack">
@@ -201,47 +205,58 @@ function renderHome() {
     ${weak ? `<button class="card weak" data-act="trainTopic" data-t="${weak.i}"><span class="tile-ico">${ico("target")}</span><span style="flex:1;min-width:0"><b style="display:block;font-weight:600;line-height:1.25">Ponto fraco: ${esc(topicName(weak.i))}</b><small class="muted small">${weak.acc}% de acerto · toque para treinar</small></span>${ico("right", "chev")}</button>` : ""}
     </div></div>
     <h2 class="section-title">Estudar</h2>
+    ${focusBar()}
     <div class="modes">
-      <a class="mode" href="#quiz"><span class="tile-ico">${ico("quiz")}</span><span><b>Questões</b><small>${ALL.length} no estilo IBAM</small></span></a>
-      <a class="mode" href="#cards"><span class="tile-ico">${ico("cards")}</span><span><b>Cartões</b><small>${CARDS.length} flashcards</small></span></a>
+      <a class="mode" href="#quiz"><span class="tile-ico">${ico("quiz")}</span><span><b>Questões</b><small>${ALL.length} no estilo ${esc(C.banca)}</small></span></a>
+      <a class="mode" href="#cards"><span class="tile-ico">${ico("cards")}</span><span><b>Cartões</b><small>${CD.length} flashcards</small></span></a>
       <a class="mode" href="#notes"><span class="tile-ico">${ico("bulb")}</span><span><b>Macetes</b><small>Revisão de véspera</small></span></a>
       <a class="mode" href="#errors">${errs ? `<span class="pill">${errs}</span>` : ""}<span class="tile-ico">${ico("alert")}</span><span><b>Caderno de erros</b><small>Montado sozinho</small></span></a>
-      <a class="mode" href="#topics"><span class="tile-ico">${ico("layers")}</span><span><b>Matérias</b><small>${TOPICS.length} itens do edital</small></span></a>
+      <a class="mode" href="#topics"><span class="tile-ico">${ico("layers")}</span><span><b>Matérias</b><small>${plural(TP.length, "matéria", "matérias")} do edital</small></span></a>
       <button class="mode" data-act="startSmart"><span class="tile-ico">${ico("refresh")}</span><span><b>Revisão inteligente</b><small>O que você mais erra</small></span></button>
     </div>
-    <p class="foot-note">Material de treino baseado na apostila. Confira sempre a lei e o edital oficiais.</p>`;
+    <p class="foot-note">${esc(C.source)}</p>`;
 }
 ACT.mission = () => {
   const n = Math.max(Math.min(state.prefs.goal - doneToday(), 20), 10);
   startSession({ mode: "smart", title: "Missão de hoje", n });
 };
-ACT.startSim = () => startSession({ mode: "sim" });
+ACT.startSim = () => {
+  if (!focusList().length) return startSession({ mode: "sim" });
+  const f = focusSimSpec();
+  sheet({ title: "Qual simulado?", body: `<p>Seu foco está em ${esc(focusLabel())}. Faça a prova completa ou um simulado só dessas matérias.</p>`, actions: [
+    { label: `Prova completa · ${SIM_SIZE} questões`, kind: "gold", icon: "clock", fn: () => startSession({ mode: "sim" }) },
+    { label: `Só o foco · ${f.size} questões · ${fmtMin(f.minutes)}`, kind: "line", icon: "target", fn: () => startSession({ mode: "sim", focus: true }) },
+    { label: "Cancelar", kind: "ghost" }
+  ] });
+};
 ACT.startSmart = () => startSession({ mode: "smart", title: "Revisão inteligente", n: 15 });
 ACT.trainTopic = d => { train.topic = String(d.t); train.art = "all"; train.only = "all"; startSession({ mode: "treino", title: "Treino: " + topicName(+d.t), n: 15, ids: shuffle(ALL.filter(q => q.t === +d.t)).map(q => q.id) }); };
 
 // ── QUESTÕES: configuração ────────────────────────────────────────────────
 const train = { topic: "all", art: "all", amount: "15", only: "all" };
 function trainPool() {
-  return ALL.filter(q => (train.topic === "all" || q.t === +train.topic) && (train.art === "all" || q.art === train.art) &&
+  return ALL.filter(q => inFocus(q.t) && (train.topic === "all" || q.t === +train.topic) && (train.art === "all" || q.art === train.art) &&
     (train.only === "all" || (train.only === "new" && !state.h[q.id]?.s) || (train.only === "wrong" && state.h[q.id]?.w > 0)));
 }
 function renderQuiz() {
   if (state.active) return renderRun();
   if (lastResult) return renderResult();
-  const arts = [...new Set(ALL.filter(q => train.topic === "all" || q.t === +train.topic).map(q => q.art))].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
+  if (train.topic !== "all" && !inFocus(train.topic)) train.topic = "all";
+  const arts = [...new Set(ALL.filter(q => inFocus(q.t) && (train.topic === "all" || q.t === +train.topic)).map(q => q.art))].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
   if (train.art !== "all" && !arts.includes(train.art)) train.art = "all";
   const errs = errorList().length, avail = trainPool().length, amounts = [["10", "10"], ["15", "15"], ["20", "20"], ["all", "Todas"]];
   const seg = (group, opts, val) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button type="button" data-act="setTrain" data-k="${group}" data-v="${v}" aria-pressed="${v === val}">${l}</button>`).join("")}</div>`;
   view.innerHTML = `
-    ${pageHead("Treino de prova", "Questões", `${ALL.length} questões, com alternativas parecidas e pegadinhas no estilo IBAM.`)}
+    ${pageHead("Treino de prova", "Questões", `${ALL.length} questões, com alternativas parecidas e pegadinhas no estilo ${esc(C.banca)}.`)}
+    ${focusBar()}
     <div class="list">
-      <button class="card sim-card" data-act="startSim"><span class="tile-ico">${ico("clock")}</span><span class="txt"><b>Simulado de prova</b><small>${SIM_SIZE} questões de vários assuntos · ${SIM_MINUTES} min · sem gabarito até entregar</small></span>${ico("right", "chev")}</button>
+      <button class="card sim-card" data-act="startSim"><span class="tile-ico">${ico("clock")}</span><span class="txt"><b>Simulado de prova</b><small>${SIM_SIZE} questões · ${fmtMin(SIM_MINUTES)} · ${C.sim.weights ? "proporção do edital" : "vários assuntos"} · sem gabarito até entregar</small></span>${ico("right", "chev")}</button>
       <button class="card sim-card" style="border-left-color:var(--line-2)" data-act="startSmart"><span class="tile-ico">${ico("refresh")}</span><span class="txt"><b>Revisão inteligente</b><small>Prioriza erros, vencidas e inéditas</small></span>${ico("right", "chev")}</button>
       <button class="card sim-card" style="border-left-color:var(--line-2)" data-act="startErrors" ${errs ? "" : "disabled"}><span class="tile-ico">${ico("alert")}</span><span class="txt"><b>Caderno de erros</b><small>${errs ? plural(errs, "questão pendente", "questões pendentes") : "Nenhum erro pendente"}</small></span>${ico("right", "chev")}</button>
     </div>
     <h2 class="section-title">Treino por assunto</h2>
     <div class="card pad stack">
-      <label class="field">Assunto<select id="trTopic"><option value="all">Todos os assuntos</option>${TOPICS.map((t, i) => `<option value="${i}" ${String(i) === train.topic ? "selected" : ""}>${pad2(i + 1)} · ${esc(t.name)}</option>`).join("")}</select></label>
+      <label class="field">Matéria<select id="trTopic"><option value="all">${focusList().length ? "Todas do meu foco" : "Todas as matérias"}</option>${TP.map((t, i) => inFocus(i) ? `<option value="${i}" ${String(i) === train.topic ? "selected" : ""}>${pad2(i + 1)} · ${esc(t.name)}</option>` : "").join("")}</select></label>
       <label class="field">Artigo ou tema<select id="trArt"><option value="all">Todos</option>${arts.map(a => `<option ${a === train.art ? "selected" : ""}>${esc(a)}</option>`).join("")}</select></label>
       <div class="field">Questões${seg("only", [["all", "Todas"], ["new", "Inéditas"], ["wrong", "Já errei"]], train.only)}</div>
       <div class="field">Quantidade${seg("amount", amounts, train.amount)}</div>
@@ -259,18 +274,32 @@ ACT.startTrain = () => {
   const label = train.topic === "all" ? "Treino" : "Treino: " + topicName(+train.topic);
   startSession({ mode: "treino", title: label, ids: pool.slice(0, n).map(q => q.id) });
 };
-ACT.startErrors = () => startSession({ mode: "erros", title: "Caderno de erros", ids: shuffle(errorList()).map(q => q.id) });
+ACT.startErrors = () => { const e = errorList(), f = e.filter(q => inFocus(q.t)); startSession({ mode: "erros", title: "Caderno de erros", ids: shuffle(f.length ? f : e).map(q => q.id) }); };
 
 // ── Sessão de questões ────────────────────────────────────────────────────
 let lastResult = null, tick = null;
-/** Simulado: uma questão de cada assunto, em ordem aleatória, priorizando as menos vistas. */
-function buildSim() {
-  const seenCount = q => state.h[q.id]?.s || 0;
-  const buckets = TOPICS.map((_, i) => shuffle(ALL.filter(q => q.t === i)).sort((a, b) => seenCount(a) - seenCount(b)));
-  const order = shuffle(TOPICS.map((_, i) => i)), out = [];
-  for (let round = 0; out.length < SIM_SIZE && round < 50; round++)
-    for (const t of order) { if (out.length >= SIM_SIZE) break; const q = buckets[t][round]; if (q) out.push(q); }
-  return shuffle(out).map(q => q.id);
+/** Simulado. Com pesos (edital), cada matéria recebe sua cota e as questões saem agrupadas por matéria,
+    como na prova. Sem pesos, uma de cada assunto em rodízio, em ordem aleatória. Sempre prioriza as menos vistas. */
+function buildSim(topics, size) {
+  const seenCount = q => state.h[q.id]?.s || 0, W = C.sim.weights, out = [];
+  const buckets = {};
+  topics.forEach(t => buckets[t] = shuffle(ALL.filter(q => q.t === t)).sort((a, b) => seenCount(a) - seenCount(b)));
+  if (W) { const tot = topics.reduce((a, t) => a + W[t], 0); topics.forEach(t => out.push(...buckets[t].splice(0, Math.round(size * W[t] / tot)))); }
+  const order = shuffle(topics.slice());
+  for (let guard = 0; out.length < size && guard < 500; guard++) {
+    let added = false;
+    for (const t of order) { if (out.length >= size) break; const q = buckets[t].shift(); if (q) { out.push(q); added = true; } }
+    if (!added) break;
+  }
+  const pick = out.slice(0, size);
+  return (W ? topics.flatMap(t => shuffle(pick.filter(q => q.t === t))) : shuffle(pick)).map(q => q.id);
+}
+const allTopics = () => TP.map((_, i) => i);
+function focusSimSpec() {
+  const f = focusList(), W = C.sim.weights, pool = focusPool().length;
+  const want = W ? f.reduce((a, t) => a + W[t], 0) : SIM_SIZE;
+  const size = Math.max(Math.min(want, pool), 1);
+  return { size, minutes: Math.max(Math.ceil(SIM_MINUTES * size / SIM_SIZE), 5) };
 }
 function askReplace(fn) {
   sheet({ title: "Já existe uma sessão aberta", body: `<p>${esc(state.active.title)} ainda está em andamento. Começar outra descarta a atual.</p>`, actions: [
@@ -280,16 +309,20 @@ function askReplace(fn) {
   ] });
 }
 function discard() { state.active = null; stopTick(); save(); }
-function startSession({ mode, title, ids, n }) {
-  if (state.active) return askReplace(() => startSession({ mode, title, ids, n }));
-  if (mode === "sim") { ids = buildSim(); title = "Simulado de prova"; }
-  if (mode === "smart") ids = ALL.slice().sort((a, b) => smartScore(b) - smartScore(a)).slice(0, n || 15).map(q => q.id);
+function startSession({ mode, title, ids, n, focus }) {
+  if (state.active) return askReplace(() => startSession({ mode, title, ids, n, focus }));
+  let minutes = 0, full = true;
+  if (mode === "sim") {
+    if (focus && focusList().length) { const f = focusSimSpec(); ids = buildSim(focusList().slice().sort((a, b) => a - b), f.size); minutes = f.minutes; full = false; title = "Simulado do foco"; }
+    else { ids = buildSim(allTopics(), SIM_SIZE); minutes = SIM_MINUTES; title = "Simulado de prova"; }
+  }
+  if (mode === "smart") ids = focusPool().sort((a, b) => smartScore(b) - smartScore(a)).slice(0, n || 15).map(q => q.id);
   else if (n && ids) ids = ids.slice(0, n);
   if (!ids || !ids.length) return toast(mode === "erros" ? "Nenhum erro pendente" : "Nenhuma questão disponível");
   state.active = {
     mode, title, ids,
     orders: ids.map(id => { const ix = BY_ID.get(id).o.map((_, i) => i); return shuffle(ix); }),
-    picks: ids.map(() => null), flags: [], cur: 0, t0: Date.now(), limit: mode === "sim" ? SIM_MINUTES * 60 : 0
+    picks: ids.map(() => null), flags: [], cur: 0, t0: Date.now(), limit: mode === "sim" ? minutes * 60 : 0, full
   };
   lastResult = null;
   save(); startTick();
@@ -327,7 +360,7 @@ function renderRun() {
       else cls = "dim";
     } else if (pick === k) cls = "sel";
     const stateTxt = reveal ? (k === q.ans ? " (alternativa correta)" : k === pick ? " (sua resposta, incorreta)" : "") : "";
-    return `<button type="button" class="opt ${cls}" data-act="pick" data-k="${k}" ${reveal ? "disabled" : ""} aria-pressed="${pick === k}"><span class="l">${"ABCD"[k]}</span><span class="t">${esc(t)}<span class="vh" style="position:absolute;left:-9999px">${stateTxt}</span></span><span class="mk">${mk}</span></button>`;
+    return `<button type="button" class="opt ${cls}" data-act="pick" data-k="${k}" ${reveal ? "disabled" : ""} aria-pressed="${pick === k}"><span class="l">${LETTERS[k]}</span><span class="t">${esc(t)}<span class="vh" style="position:absolute;left:-9999px">${stateTxt}</span></span><span class="mk">${mk}</span></button>`;
   }).join("");
   const isLast = i === total - 1;
   const good = reveal && pick === q.ans;
@@ -411,8 +444,9 @@ function finish() {
     items.push({ q, pick: p, good });
   });
   const ok = items.filter(x => x.good).length;
-  if (sim) state.sims.push({ at: Date.now(), n: s.ids.length, ok, sec });
-  lastResult = { mode: s.mode, title: s.title, items, ok, sec, sim };
+  const full = sim && s.full !== false;
+  if (sim) state.sims.push({ at: Date.now(), n: s.ids.length, ok, sec, full });
+  lastResult = { mode: s.mode, title: s.title, items, ok, sec, sim, full };
   state.active = null;
   save();
   if (route === "quiz") render(true); else go("quiz");
@@ -421,13 +455,11 @@ function finish() {
 // ── Resultado ─────────────────────────────────────────────────────────────
 function renderResult() {
   const r = lastResult, n = r.items.length, bad = r.items.filter(x => !x.good);
-  const R = 76, C = 2 * Math.PI * R, ratio = n ? r.ok / n : 0;
+  const R = 76, CIRC = 2 * Math.PI * R, ratio = n ? r.ok / n : 0;
   const points = r.ok * POINTS_PER_Q, maxPoints = n * POINTS_PER_Q;
   let head, msg;
-  if (r.sim) {
-    if (r.ok >= SAFE_OK) { head = "Acima da linha"; msg = `Com ${points} pontos só em Específicos, você já passa dos 50 pontos da nota mínima.`; }
-    else if (r.ok >= TARGET_OK) { head = "Na meta"; msg = `Faltou ${plural(SAFE_OK - r.ok, "acerto", "acertos")} para garantir os 50 pontos só com Específicos.`; }
-    else { head = "Abaixo da meta"; msg = `A meta é de ${TARGET_OK} acertos ou mais. Os erros já estão no seu caderno.`; }
+  if (r.sim && r.full !== false) {
+    [head, msg] = C.verdict(r.ok, points);
   } else {
     const p = pct(r.ok, n);
     head = p >= 80 ? "Excelente" : p >= 60 ? "Bom caminho" : "Continue treinando";
@@ -447,9 +479,9 @@ function renderResult() {
     </details>`).join("");
   view.innerHTML = `
     <section class="result-hero">
-      <span class="kicker" style="color:var(--gold)">${r.sim ? "Nota final" : "Resultado"}</span>
+      <span class="kicker" style="color:var(--gold)">${r.sim ? (r.full === false ? "Simulado do foco" : "Nota final") : "Resultado"}</span>
       <div class="gauge" role="img" aria-label="${r.ok} acertos de ${n}">
-        <svg viewBox="0 0 176 176"><circle class="bg" cx="88" cy="88" r="${R}"/><circle class="fg" id="gaugeFg" cx="88" cy="88" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></svg>
+        <svg viewBox="0 0 176 176"><circle class="bg" cx="88" cy="88" r="${R}"/><circle class="fg" id="gaugeFg" cx="88" cy="88" r="${R}" stroke-dasharray="${CIRC}" stroke-dashoffset="${CIRC}"/></svg>
         <div class="num"><b>${r.sim ? points : pct(r.ok, n) + "%"}</b><small>${r.sim ? `de ${maxPoints} pontos` : "de acerto"}</small></div>
       </div>
       <h1>${esc(head)}</h1><p>${esc(msg)}</p>
@@ -462,26 +494,27 @@ function renderResult() {
     ${r.sim ? `<h2 class="section-title">Por assunto</h2><div class="card pad" style="padding-block:6px">${Object.keys(byTopic).map(t => `<div class="sim-row"><span>${esc(topicName(+t))}</span><span class="tagp ${byTopic[t].ok === byTopic[t].n ? "good" : "bad"}">${ico(byTopic[t].ok === byTopic[t].n ? "check" : "x", "s")}${byTopic[t].ok}/${byTopic[t].n}</span></div>`).join("")}</div>` : ""}
     <h2 class="section-title">Revisão das questões</h2>
     <div>${review || `<p class="muted">Nenhuma questão respondida.</p>`}</div>`;
-  requestAnimationFrame(() => requestAnimationFrame(() => { const g = $("gaugeFg"); if (g) g.setAttribute("stroke-dashoffset", C * (1 - ratio)); }));
+  requestAnimationFrame(() => requestAnimationFrame(() => { const g = $("gaugeFg"); if (g) g.setAttribute("stroke-dashoffset", CIRC * (1 - ratio)); }));
 }
 ACT.trainBad = () => { const ids = lastResult.items.filter(x => !x.good).map(x => x.q.id); startSession({ mode: "custom", title: "Treino dos erros", ids: shuffle(ids) }); };
-ACT.again = () => { const sim = lastResult.sim; lastResult = null; if (sim) startSession({ mode: "sim" }); else renderQuiz(); };
+ACT.again = () => { const sim = lastResult.sim, full = lastResult.full !== false; lastResult = null; if (sim) startSession({ mode: "sim", focus: !full }); else renderQuiz(); };
 ACT.leaveResult = () => { lastResult = null; go("home"); };
 
 // ── CARTÕES ───────────────────────────────────────────────────────────────
 let deck = { filter: "all", list: [], i: 0, flip: false };
 function buildDeck(mix) {
   const f = deck.filter;
-  let list = f === "all" ? CARD_LIST : f === "review" ? CARD_LIST.filter(c => state.review.includes(c.id)) : f === "new" ? CARD_LIST.filter(c => !state.seen.includes(c.id)) : CARD_LIST.filter(c => c.ti === +f);
+  let list = f === "all" ? CARD_LIST.filter(c => inFocus(c.ti)) : f === "review" ? CARD_LIST.filter(c => state.review.includes(c.id)) : f === "new" ? CARD_LIST.filter(c => !state.seen.includes(c.id)) : CARD_LIST.filter(c => c.ti === +f);
   deck.list = mix ? shuffle(list) : list.slice(); deck.i = 0; deck.flip = false;
 }
 function renderCards() {
   if (!deck.list.length && deck.filter === "all") buildDeck();
   const c = deck.list[deck.i], known = state.known.length, revCount = state.review.length;
-  const opt = `<option value="all" ${deck.filter === "all" ? "selected" : ""}>Todos os cartões (${CARDS.length})</option><option value="review" ${deck.filter === "review" ? "selected" : ""}>Para revisar (${revCount})</option><option value="new" ${deck.filter === "new" ? "selected" : ""}>Ainda não vistos (${CARDS.length - state.seen.length})</option>` +
-    TOPICS.map((t, i) => { const n = CARD_LIST.filter(x => x.ti === i).length; return n ? `<option value="${i}" ${deck.filter === String(i) ? "selected" : ""}>${esc(t.name)} (${n})</option>` : ""; }).join("");
+  const opt = `<option value="all" ${deck.filter === "all" ? "selected" : ""}>${focusList().length ? "Cartões do meu foco" : "Todos os cartões"} (${CARD_LIST.filter(c => inFocus(c.ti)).length})</option><option value="review" ${deck.filter === "review" ? "selected" : ""}>Para revisar (${revCount})</option><option value="new" ${deck.filter === "new" ? "selected" : ""}>Ainda não vistos (${CD.length - state.seen.length})</option>` +
+    TP.map((t, i) => { const n = inFocus(i) ? CARD_LIST.filter(x => x.ti === i).length : 0; return n ? `<option value="${i}" ${deck.filter === String(i) ? "selected" : ""}>${esc(t.name)} (${n})</option>` : ""; }).join("");
   view.innerHTML = `
-    ${pageHead("Memorização ativa", "Cartões", `${known} de ${CARDS.length} marcados como conhecidos. <a href="#notes" style="color:var(--accent);font-weight:600">Ver macetes</a>`)}
+    ${pageHead("Memorização ativa", "Cartões", `${known} de ${CD.length} marcados como conhecidos. <a href="#notes" style="color:var(--accent);font-weight:600">Ver macetes</a>`)}
+    ${focusBar()}
     <div class="row" style="margin-bottom:12px"><select id="deckFilter" aria-label="Filtrar cartões" style="flex:1;min-width:0">${opt}</select><button class="icon-btn" data-act="deckShuffle" aria-label="Embaralhar">${ico("shuffle")}</button></div>
     ${c ? `
     <div class="flip-wrap">
@@ -526,28 +559,29 @@ ACT.deckAll = () => { deck.filter = "all"; buildDeck(); renderCards(); };
 // ── MATÉRIAS ──────────────────────────────────────────────────────────────
 function renderTopics() {
   view.innerHTML = `
-    ${pageHead("Edital · Conhecimentos Específicos", `${TOPICS.length} matérias`, "A barra mostra as questões já dominadas, com dois acertos seguidos.")}
-    <div class="list">${TOPICS.map((t, i) => {
+    ${pageHead(C.scopeLabel, `${TP.length} matérias`, "A barra mostra as questões já dominadas, com dois acertos seguidos.")}
+    <div class="list">${TP.map((t, i) => {
       const s = topicStats(i);
-      return `<button class="topic" data-act="openTopic" data-t="${i}"><span class="n">${pad2(i + 1)}</span><span class="txt"><b>${esc(t.name)}</b><small>${esc(t.sub)}</small><small>${s.mastered} de ${s.total} dominadas${s.acc != null ? ` · ${s.acc}% de acerto` : ""}</small><span class="mini" style="display:block"><i style="width:${pct(s.mastered, s.total)}%"></i></span></span>${ico("right", "chev")}</button>`;
+      return `<button class="topic" data-act="openTopic" data-t="${i}"><span class="n">${pad2(i + 1)}</span><span class="txt"><b>${esc(t.name)}${C.sim.weights ? ` <em class="wt">${C.sim.weights[i]} questões na prova</em>` : ""}</b><small>${esc(t.sub)}</small><small>${s.mastered} de ${s.total} dominadas${s.acc != null ? ` · ${s.acc}% de acerto` : ""}</small><span class="mini" style="display:block"><i style="width:${pct(s.mastered, s.total)}%"></i></span></span>${ico("right", "chev")}</button>`;
     }).join("")}</div>`;
 }
 ACT.openTopic = d => {
-  const i = +d.t, t = TOPICS[i], s = topicStats(i), cards = CARD_LIST.filter(c => c.ti === i).length, notes = MACETES.filter(m => m.t === i).length;
+  const i = +d.t, t = TP[i], s = topicStats(i), cards = CARD_LIST.filter(c => c.ti === i).length, notes = MC.filter(m => m.t === i).length;
   sheet({ title: t.name, body: `<p>${esc(t.sub)}</p><p style="margin-top:8px">${s.total} questões · ${cards} cartões · ${notes} macetes${s.acc != null ? ` · ${s.acc}% de acerto` : ""}</p>`, actions: [
     { label: "Treinar questões", kind: "gold", icon: "quiz", fn: () => ACT.trainTopic({ t: i }) },
+    { label: "Estudar só esta matéria", icon: "target", fn: () => setFocus([i]) },
     { label: "Ver cartões", icon: "cards", fn: () => { deck.filter = String(i); buildDeck(); go("cards"); } },
     { label: "Ver macetes", icon: "bulb", fn: () => { notesFilter = { q: "", t: String(i) }; go("notes"); } },
     { label: "Fechar", kind: "ghost" }
   ] });
 };
 
-// ── MACETES ───────────────────────────────────────────────────────────────
+// ── MC ───────────────────────────────────────────────────────────────
 let notesFilter = { q: "", t: "all" };
 const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 function notesHtml() {
   const q = norm(notesFilter.q.trim());
-  const match = MACETES.filter(m => (notesFilter.t === "all" || m.t === +notesFilter.t) && (!q || norm(m.title + " " + m.tag + " " + m.text + " " + topicName(m.t)).includes(q)));
+  const match = MC.filter(m => (notesFilter.t === "all" ? inFocus(m.t) : m.t === +notesFilter.t) && (!q || norm(m.title + " " + m.tag + " " + m.text + " " + topicName(m.t)).includes(q)));
   if (!match.length) return `<div class="card empty"><span class="tile-ico" style="background:var(--surface-3);color:var(--text-2)">${ico("search")}</span><b>Nada encontrado</b><p>Tente outra palavra, como “flagrante”, “LIMPE” ou “153”.</p></div>`;
   const groups = {}; match.forEach(m => (groups[m.t] = groups[m.t] || []).push(m));
   return Object.keys(groups).map(t => `
@@ -557,8 +591,9 @@ function notesHtml() {
 function renderNotes() {
   view.innerHTML = `
     ${pageHead("Revisão expressa", "Macetes", "O que a banca costuma trocar, por assunto. Leia em voz alta na véspera.")}
+    ${focusBar()}
     <div class="search">${ico("search")}<input class="input" id="noteQ" type="search" placeholder="Buscar: flagrante, LIMPE, 153…" aria-label="Buscar macetes" value="${esc(notesFilter.q)}"></div>
-    <select id="noteT" aria-label="Filtrar por assunto"><option value="all">Todos os assuntos</option>${TOPICS.map((t, i) => `<option value="${i}" ${notesFilter.t === String(i) ? "selected" : ""}>${pad2(i + 1)} · ${esc(t.name)}</option>`).join("")}</select>
+    <select id="noteT" aria-label="Filtrar por assunto"><option value="all">${focusList().length ? "Matérias do meu foco" : "Todos os assuntos"}</option>${TP.map((t, i) => `<option value="${i}" ${notesFilter.t === String(i) ? "selected" : ""}>${pad2(i + 1)} · ${esc(t.name)}</option>`).join("")}</select>
     <div id="noteList">${notesHtml()}</div>`;
   $("noteQ").oninput = e => { notesFilter.q = e.target.value; $("noteList").innerHTML = notesHtml(); };
   $("noteT").onchange = e => { notesFilter.t = e.target.value; $("noteList").innerHTML = notesHtml(); };
@@ -590,15 +625,15 @@ ACT.mastered = d => {
 
 // ── PROGRESSO ─────────────────────────────────────────────────────────────
 function simChart() {
-  const sims = state.sims.slice(-12);
+  const sims = fullSims().slice(-12), MAX = SIM_SIZE * POINTS_PER_Q;
   if (!sims.length) return `<p class="muted small">Faça seu primeiro simulado para ver a evolução aqui.</p>`;
-  const W = Math.max(Math.round(view.clientWidth - 2 * parseFloat(getComputedStyle(view).paddingLeft) - 34), 240), H = 190, L = 28, R = 12, T = 14, B = 12, Y = v => T + (H - T - B) * (1 - v / 60);
+  const W = Math.max(Math.round(view.clientWidth - 2 * parseFloat(getComputedStyle(view).paddingLeft) - 34), 240), H = 190, L = 28, R = 12, T = 14, B = 12, Y = v => T + (H - T - B) * (1 - v / MAX);
   const X = i => sims.length === 1 ? (L + W - R) / 2 : L + (W - L - R) * i / (sims.length - 1);
   const pts = sims.map((s, i) => [X(i), Y(s.ok * POINTS_PER_Q), s]);
   const meta = TARGET_OK * POINTS_PER_Q;
   const data = pts.map(([x, y, s]) => `${x.toFixed(1)},${y.toFixed(1)},${s.ok * POINTS_PER_Q},${new Date(s.at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`).join("|");
-  return `<svg class="chart" id="simChart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Pontos nos últimos ${sims.length} simulados. O mais recente: ${sims[sims.length - 1].ok * POINTS_PER_Q} de 60." data-pts="${data}">
-    ${[0, 20, 40, 60].map(v => `<line class="gridl" x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 7}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`).join("")}
+  return `<svg class="chart" id="simChart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Pontos nos últimos ${sims.length} simulados. O mais recente: ${sims[sims.length - 1].ok * POINTS_PER_Q} de ${MAX}." data-pts="${data}">
+    ${[0, MAX / 3, MAX * 2 / 3, MAX].map(v => `<line class="gridl" x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 7}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`).join("")}
     <line class="meta" x1="${L}" x2="${W - R}" y1="${Y(meta)}" y2="${Y(meta)}"/><text x="${L + 4}" y="${Y(meta) - 5}">meta ${meta}</text>
     ${pts.length > 1 ? `<polyline class="ln" points="${pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}"/>` : ""}
     ${pts.map(p => `<circle class="pt" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="5"/>`).join("")}
@@ -639,7 +674,7 @@ let installEvt = null;
 const isStandalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 function renderStats() {
   const r = rank(), total = state.answered;
-  const tp = TOPICS.map((t, i) => ({ i, name: t.name, ...topicStats(i) })).filter(x => x.tries).sort((a, b) => a.acc - b.acc);
+  const tp = TP.map((t, i) => ({ i, name: t.name, ...topicStats(i) })).filter(x => x.tries).sort((a, b) => a.acc - b.acc);
   const chevs = Array.from({ length: 5 }, (_, k) => `<i class="${k < Math.ceil((r.i + 1) / 2) ? "" : "off"}"></i>`).join("");
   const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button type="button" data-act="setPref" data-k="${k}" data-v="${v}" aria-pressed="${String(state.prefs[k]) === String(v)}">${l}</button>`).join("")}</div>`;
   view.innerHTML = `
@@ -657,8 +692,8 @@ function renderStats() {
       <div class="kpi"><b>${streak()}</b><span>dias seguidos</span></div>
     </div>
     <h2 class="section-title">Simulados</h2>
-    <div class="card chart-card"><h3>Pontos em Específicos</h3><p>Meta: ${TARGET_OK} acertos (${TARGET_OK * POINTS_PER_Q} pontos). Com ${SAFE_OK} (${SAFE_OK * POINTS_PER_Q}), você passa da nota mínima.</p>${simChart()}</div>
-    ${state.sims.length ? `<div class="card pad" style="padding-block:6px;margin-top:10px">${state.sims.slice(-6).reverse().map(s => { const ok = s.ok >= TARGET_OK; return `<div class="sim-row"><span>${new Date(s.at).toLocaleDateString("pt-BR")} · ${fmtTime(s.sec)}</span><span style="display:flex;align-items:center;gap:10px"><span class="tagp ${ok ? "good" : "bad"}">${ico(ok ? "check" : "x", "s")}${ok ? "Na meta" : "Abaixo"}</span><b>${s.ok * POINTS_PER_Q}</b></span></div>`; }).join("")}</div>` : ""}
+    <div class="card chart-card"><h3>${esc(C.pointsLabel)}</h3><p>${esc(C.metaText)}</p>${simChart()}</div>
+    ${state.sims.length ? `<div class="card pad" style="padding-block:6px;margin-top:10px">${state.sims.slice(-6).reverse().map(s => { const full = s.full !== false, ok = full ? s.ok >= TARGET_OK : s.ok / s.n >= .7; return `<div class="sim-row"><span>${new Date(s.at).toLocaleDateString("pt-BR")} · ${fmtTime(s.sec)}${full ? "" : " · foco"}</span><span style="display:flex;align-items:center;gap:10px"><span class="tagp ${ok ? "good" : "bad"}">${ico(ok ? "check" : "x", "s")}${ok ? (full ? "Na meta" : "Bom") : "Abaixo"}</span><b>${full ? s.ok * POINTS_PER_Q : s.ok + "/" + s.n}</b></span></div>`; }).join("")}</div>` : ""}
     <h2 class="section-title">Ritmo</h2>
     <div class="card chart-card"><h3>Últimos 35 dias</h3><p>Questões respondidas por dia.</p>${heatmap()}</div>
     <h2 class="section-title">Por assunto · do mais fraco ao mais forte</h2>
@@ -670,6 +705,8 @@ function renderStats() {
       </button>`).join("") : `<p class="muted small" style="padding:12px 0">Responda questões para ver seu desempenho por assunto.</p>`}</div>
     <h2 class="section-title">Ajustes</h2>
     <div class="card pad">
+      <div class="set-row"><b>Concurso</b><p class="hint">${esc(C.full)}</p><button class="btn line small" data-act="switchConcurso">${ico("refresh", "s")}Trocar de concurso</button></div>
+      <div class="set-row"><b>Foco de estudo</b><p class="hint">${esc(focusLabel())}</p><button class="btn line small" data-act="openFocus">${ico("target", "s")}Alterar foco</button></div>
       <div class="set-row"><b>Aparência</b>${seg("theme", [["auto", "Automático"], ["light", "Claro"], ["dark", "Escuro"]])}</div>
       <div class="set-row"><b>Meta diária</b>${seg("goal", [[10, "10"], [20, "20"], [30, "30"], [50, "50"]])}</div>
       <div class="set-row"><b>Backup</b><p class="hint">O progresso fica só neste aparelho. Exporte para não perder.</p>
@@ -678,7 +715,7 @@ function renderStats() {
       ${isStandalone() ? "" : `<div class="set-row"><b>Aplicativo</b><button class="btn line small" data-act="install">${ico("plus", "s")}Instalar na tela inicial</button></div>`}
       <div class="set-row"><button class="btn danger small" data-act="resetData">${ico("trash", "s")}Apagar meu progresso</button></div>
     </div>
-    <p class="foot-note">${ALL.length} questões · ${CARDS.length} cartões · ${MACETES.length} macetes. Material de treino: confira sempre a lei e o edital oficiais.</p>`;
+    <p class="foot-note">${ALL.length} questões · ${CD.length} cartões · ${MC.length} macetes. ${esc(C.source)}</p>`;
   wireChart();
   $("importFile").onchange = onImportFile;
 }
@@ -689,12 +726,13 @@ ACT.setPref = d => {
 function applyTheme() {
   const t = state.prefs.theme, root = document.documentElement;
   if (t === "auto") delete root.dataset.theme; else root.dataset.theme = t;
+  try { localStorage.setItem("cc-theme", t); } catch (e) {}
 }
 ACT.exportData = async () => {
-  const name = `gcm-cubatao-backup-${dayKey()}.json`, text = JSON.stringify({ ...state, active: null });
+  const name = `${C.id}-backup-${dayKey()}.json`, text = JSON.stringify({ ...state, active: null, concurso: C.id });
   const file = new File([text], name, { type: "application/json" });
   try {
-    if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia("(pointer:coarse)").matches) { await navigator.share({ files: [file], title: "Backup GCM Cubatão" }); return; }
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia("(pointer:coarse)").matches) { await navigator.share({ files: [file], title: `Backup ${C.name}` }); return; }
   } catch (e) { if (e.name === "AbortError") return; }
   const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name; document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -706,6 +744,7 @@ async function onImportFile(e) {
   let data;
   try { data = JSON.parse(await f.text()); if (!data || typeof data !== "object" || typeof data.h !== "object") throw 0; }
   catch (err) { toast("Arquivo inválido. Use um backup exportado por este app."); e.target.value = ""; return; }
+  if (data.concurso && data.concurso !== C.id) { e.target.value = ""; return toast(`Este backup é de outro concurso. Troque para ele antes de importar.`); }
   e.target.value = "";
   sheet({ title: "Substituir o progresso?", body: `<p>O backup tem ${plural(data.answered || 0, "questão respondida", "questões respondidas")} e ${plural((data.sims || []).length, "simulado", "simulados")}. O progresso atual deste aparelho será trocado por ele.</p>`, actions: [
     { label: "Importar backup", kind: "gold", fn: () => { state = hydrate({ ...data, active: null }); stopTick(); save(); applyTheme(); render(); toast("Backup importado"); } },
@@ -726,7 +765,8 @@ ACT.install = async () => {
 document.addEventListener("keydown", e => {
   if (route !== "quiz" || !state.active || $("sheet").open || e.ctrlKey || e.metaKey || e.altKey) return;
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
-  const k = e.key.toLowerCase(), s = state.active, map = { a: 0, b: 1, c: 2, d: 3, 1: 0, 2: 1, 3: 2, 4: 3 };
+  const k = e.key.toLowerCase(), s = state.active, map = { a: 0, b: 1, c: 2, d: 3, e: 4, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4 };
+  if (k in map && map[k] >= BY_ID.get(s.ids[s.cur]).o.length) return;
   if (k in map) { e.preventDefault(); ACT.pick({ k: map[k] }); return; }
   if (s.mode === "sim") {
     if (e.key === "ArrowRight") ACT.move({ d: 1 });
@@ -746,8 +786,97 @@ function restoreSession() {
   startTick();
   if (s.limit && elapsed(s) >= s.limit) finish();
 }
-applyTheme();
-restoreSession();
+// ── Concursos: escolha, troca e foco ──────────────────────────────────────
+function useConcurso(id) {
+  stopTick();
+  C = CONCURSOS.find(c => c.id === id) || CONCURSOS[0];
+  ({ size: SIM_SIZE, minutes: SIM_MINUTES, pts: POINTS_PER_Q, target: TARGET_OK, safe: SAFE_OK } = C.sim);
+  EXAM_DATE = C.examDate; STORE = C.store; RANKS = C.ranks;
+  TP = C.topics; CD = C.cards; MC = C.macetes;
+  ALL = C.questions.map(x => ({ ...x, id: hash(x.q) }));
+  BY_ID = new Map(ALL.map(q => [q.id, q]));
+  CARD_LIST = CD.map((c, i) => ({ ...c, id: i, ti: TP.findIndex(t => t.name === c.topic) }));
+  let raw = load(STORE);
+  if (!raw && C.id === "gcm") { const v1 = load("gcm-cubatao-study-v1") || {}; raw = { seen: v1.seen, known: v1.known, review: v1.review }; }
+  state = hydrate(raw);
+  try { const gt = localStorage.getItem("cc-theme"); if (gt) state.prefs.theme = gt; } catch (e) {} // aparência vale para todos os concursos
+  state.prefs.focus = state.prefs.focus.filter(t => Number.isInteger(t) && t >= 0 && t < TP.length);
+  lastResult = null;
+  deck = { filter: "all", list: [], i: 0, flip: false };
+  Object.assign(train, { topic: "all", art: "all", only: "all" });
+  notesFilter = { q: "", t: "all" };
+  try { localStorage.setItem(ACTIVE_KEY, C.id); } catch (e) {}
+  const root = document.documentElement;
+  root.dataset.concurso = C.id;
+  document.title = `${C.name} · Central de Estudos`;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", C.themeColor);
+  const rail = document.querySelector(".brand-rail");
+  if (rail) rail.innerHTML = `<svg class="logo"><use href="#i-${C.logo}"/></svg><span><b>${esc(C.name)}</b><small>Central de estudos</small></span>`;
+  applyTheme();
+  restoreSession();
+}
+function peek(c) {
+  const raw = load(c.store) || {}, n = raw.answered || 0;
+  return { n, acc: n ? pct(raw.correct || 0, n) : null, active: !!raw.active, days: raw.days ? Object.keys(raw.days).length : 0 };
+}
+function renderPicker() {
+  const last = chosenBefore ? C.id : null;
+  view.innerHTML = `
+    <header class="picker-head">
+      <svg class="logo" aria-hidden="true"><use href="#i-${C.logo}"/></svg>
+      <span class="kicker">Central de estudos</span>
+      <h1 class="title">Qual concurso<br>você vai estudar?</h1>
+      <p>Cada concurso tem matérias, simulado, caderno de erros e progresso próprios.</p>
+    </header>
+    <div class="list picker-list">${CONCURSOS.map(c => {
+      const pk = peek(c), cur = c.id === last;
+      return `<button class="card concurso" data-act="pickConcurso" data-id="${c.id}" data-c="${c.id}" ${cur ? 'aria-current="true"' : ""}>
+        <span class="cz-top"><svg class="logo" aria-hidden="true"><use href="#i-${c.logo}"/></svg><span class="cz-name"><b>${esc(c.name)}</b><small>${esc(c.sub)}</small></span>${cur ? `<span class="pill">Último</span>` : ""}</span>
+        <span class="cz-facts"><span><b>${c.topics.length}</b>matérias</span><span><b>${c.questions.length}</b>questões</span><span><b>${c.sim.size}</b>no simulado</span></span>
+        <span class="cz-foot"><span class="status">${esc(c.status)}</span><span>${pk.n ? `${pk.n} feitas · ${pk.acc}% de acerto` : "Comece do zero"}${ico("right", "s")}</span></span>
+      </button>`; }).join("")}</div>
+    <p class="foot-note">Projeto pessoal de estudo, sem vínculo com as instituições ou bancas. Confira sempre o edital oficial.</p>`;
+}
+ACT.pickConcurso = d => { chosenBefore = true; if (!C || C.id !== d.id) useConcurso(d.id); go("home"); };
+ACT.switchConcurso = () => go("concursos");
+
+const focusLabel = () => {
+  const f = focusList();
+  if (!f.length) return "Todas as matérias juntas";
+  const names = f.slice().sort((a, b) => a - b).map(i => TP[i].name);
+  return names.length <= 2 ? names.join(" e ") : `${names.length} matérias: ${names.slice(0, 2).join(", ")}…`;
+};
+function focusBar() {
+  const on = focusList().length > 0;
+  return `<button class="card focus-bar ${on ? "on" : ""}" data-act="openFocus"><span class="tile-ico">${ico(on ? "target" : "layers")}</span><span class="txt"><small>Foco de estudo</small><b>${esc(focusLabel())}</b></span><span class="link">Alterar</span></button>`;
+}
+function setFocus(list) {
+  state.prefs.focus = [...new Set(list)].filter(t => t >= 0 && t < TP.length).sort((a, b) => a - b);
+  if (state.prefs.focus.length === TP.length) state.prefs.focus = [];
+  train.topic = "all"; train.art = "all"; deck.filter = "all"; deck.list = []; notesFilter.t = "all";
+  save(); render();
+  toast(state.prefs.focus.length ? `Foco: ${focusLabel()}` : "Estudando todas as matérias juntas");
+}
+ACT.openFocus = () => {
+  const f = focusList();
+  const rows = TP.map((t, i) => {
+    const n = ALL.filter(q => q.t === i).length;
+    return `<label class="fchk"><input type="checkbox" value="${i}" ${f.includes(i) ? "checked" : ""}><span><b>${esc(t.name)}</b><small>${plural(n, "questão", "questões")}${C.sim.weights ? ` · ${C.sim.weights[i]} na prova` : ""}</small></span></label>`;
+  }).join("");
+  sheet({ title: "Como você quer estudar?", body: `<p>Estude todas as matérias juntas ou marque só as que quer treinar agora. O foco vale para questões, cartões, macetes, revisão e simulado do foco.</p><div class="fchk-list" id="focusList">${rows}</div>`, actions: [
+    { label: "Estudar só as marcadas", kind: "gold", icon: "target", fn: () => {
+      const sel = [...document.querySelectorAll("#focusList input:checked")].map(x => +x.value);
+      if (!sel.length) return toast("Marque pelo menos uma matéria");
+      setFocus(sel);
+    } },
+    { label: "Todas as matérias juntas", kind: "line", icon: "layers", fn: () => setFocus([]) },
+    { label: "Cancelar", kind: "ghost" }
+  ] });
+};
+
+const bootId = (() => { try { return localStorage.getItem(ACTIVE_KEY); } catch (e) { return null; } })();
+let chosenBefore = !!bootId || CONCURSOS.some(c => load(c.store));
+useConcurso(CONCURSOS.some(c => c.id === bootId) ? bootId : CONCURSOS[0].id);
 render();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", () => {

@@ -2,17 +2,17 @@
 
 <img src="icon-192.png" width="96" alt="Escudo do app">
 
-# Central de Estudos · GCM Cubatão
+# Central de Estudos · Concursos
 
-**Um app simples, mas funcional, que fiz para estudar para o concurso da Guarda Civil Municipal de Cubatão.**
+**Um app simples, mas funcional, que fiz para estudar para concursos de segurança pública: Guarda Civil Municipal de Cubatão e Soldado da PM-SP.**
 
 Abre no celular, funciona sem internet e não precisa de login, servidor nem banco de dados.
 
-### [Abrir o app](https://nelsonmatheus.github.io/app-estudos-gcm-cubatao/)
+### [Abrir o app](https://nelsonmatheus.github.io/central-de-estudos-concursos/)
 
-![Questões](https://img.shields.io/badge/quest%C3%B5es-243-f2b632?style=flat-square&labelColor=0a1424)
-![Flashcards](https://img.shields.io/badge/flashcards-51-f2b632?style=flat-square&labelColor=0a1424)
-![Macetes](https://img.shields.io/badge/macetes-53-f2b632?style=flat-square&labelColor=0a1424)
+![Questões](https://img.shields.io/badge/quest%C3%B5es-503-f2b632?style=flat-square&labelColor=0a1424)
+![Flashcards](https://img.shields.io/badge/flashcards-124-f2b632?style=flat-square&labelColor=0a1424)
+![Macetes](https://img.shields.io/badge/macetes-109-f2b632?style=flat-square&labelColor=0a1424)
 ![Dependências](https://img.shields.io/badge/depend%C3%AAncias-0-f2b632?style=flat-square&labelColor=0a1424)
 ![PWA](https://img.shields.io/badge/PWA-offline-f2b632?style=flat-square&labelColor=0a1424)
 
@@ -34,7 +34,18 @@ Deixei o projeto aberto porque ele pode ajudar de duas formas:
 - **Quem está aprendendo a programar** pode usá-lo como ideia de projeto: é um app completo, com lógica real, feito só com HTML, CSS e JavaScript.
 
 > [!IMPORTANT]
-> Este é um projeto pessoal, sem vínculo com a Prefeitura de Cubatão nem com o IBAM. As questões são material de treino e **podem conter erros**. Confira sempre a lei e o edital oficiais.
+> Este é um projeto pessoal, sem vínculo com a Prefeitura de Cubatão, a Polícia Militar de São Paulo, o IBAM ou a Vunesp. As questões são material de treino e **podem conter erros**. Confira sempre a lei e o edital oficiais.
+
+## Novidade da v4: vários concursos
+
+Ao abrir, você escolhe o concurso. Cada um tem matérias, regras de prova, tema visual e progresso próprios:
+
+| Concurso | Banca | Simulado | Conteúdo |
+|---|---|---|---|
+| **GCM Cubatão** | IBAM | 15 questões, 79 min, 4 pontos cada | Conhecimentos Específicos |
+| **PM-SP Soldado** | Vunesp | 60 questões, 5 alternativas, proporção do edital | Português, Matemática, Conhecimentos Gerais, Informática e Administração Pública (provisório, base no edital 2025) |
+
+O **foco de estudo** deixa você treinar todas as matérias juntas ou só as que marcar, inclusive em um simulado só do foco.
 
 ## O que ele faz
 
@@ -117,7 +128,7 @@ flowchart LR
 
 ## Instalar no celular
 
-1. Abra o [link do app](https://nelsonmatheus.github.io/app-estudos-gcm-cubatao/).
+1. Abra o [link do app](https://nelsonmatheus.github.io/central-de-estudos-concursos/).
 2. **iPhone:** no Safari, toque em Compartilhar e depois em Adicionar à Tela de Início.
 3. **Android:** no Chrome, abra o menu e toque em Instalar app.
 
@@ -131,8 +142,8 @@ Depois de aberto uma vez, ele funciona sem internet.
 Não há nada para instalar além de um servidor local, necessário para o Service Worker funcionar.
 
 ```bash
-git clone https://github.com/nelsonmatheus/app-estudos-gcm-cubatao.git
-cd app-estudos-gcm-cubatao
+git clone https://github.com/nelsonmatheus/central-de-estudos-concursos.git
+cd central-de-estudos-concursos
 python -m http.server 8000
 ```
 
@@ -152,7 +163,7 @@ A estrutura serve para qualquer concurso ou matéria. Para adaptar:
      "LIMPE: legalidade, impessoalidade, moralidade, publicidade, eficiência."]
    ```
 
-3. **Prova:** ajuste a data, o número de questões, o tempo e o peso no início de `app.js`, e o texto da data em `renderHome`.
+3. **Prova:** cadastre o concurso em `concursos.js`, com data, número de questões, tempo, peso e tema.
 4. **Publicação:** carregue o arquivo novo no `index.html`, antes do `extras.js`. Depois, liste-o em `sw.js` e suba a versão de `CACHE`, senão quem já instalou continua vendo a versão antiga.
 
 **Desafios para treinar:** criar um modo de questões por áudio, sincronizar o progresso entre aparelhos, adicionar notificações de revisão ou incluir as outras matérias da prova.
@@ -166,6 +177,8 @@ A estrutura serve para qualquer concurso ou matéria. Para adaptar:
 ├── data.js               Assuntos, cartões e questões da primeira versão
 ├── bank-1, 2 e 3.js      Banco de questões
 ├── extras.js             Cartões adicionais e macetes
+├── pmsp-*.js             Conteúdo da PM-SP
+├── concursos.js          Regras e tema de cada concurso
 ├── sw.js                 Funcionamento offline
 ├── manifest.webmanifest  Instalação como app
 ├── fonts/                Fontes locais
@@ -174,16 +187,16 @@ A estrutura serve para qualquer concurso ou matéria. Para adaptar:
 
 ## Créditos e limitações
 
-- **Conteúdo:** as questões e os macetes foram escritos com base na apostila *Resumão GCM Cubatão 2026*, de Felipe Resumão (@feliperesumao). Ela é o material de estudo completo; este app é só um apoio para treinar.
+- **Conteúdo:** as questões e os macetes da GCM Cubatão, e os de Português, Matemática e Informática da PM-SP, foram escritos com base na apostila *Resumão GCM Cubatão 2026*, de Felipe Resumão (@feliperesumao). Ela é o material de estudo completo; este app é só um apoio para treinar. Conhecimentos Gerais e Administração Pública da PM-SP não vêm da apostila.
 - **Fontes:** [Barlow](https://fonts.google.com/specimen/Barlow), de Jeremy Tribby, sob licença SIL Open Font.
-- **Cobertura:** o app trata só de Conhecimentos Específicos. Português, Matemática e Informática ficaram de fora.
+- **Cobertura:** na GCM Cubatão, o app trata só de Conhecimentos Específicos. Na PM-SP, o conteúdo é provisório, com base no edital de 2025, até sair o edital novo.
 - **Testes:** rodei os testes no Chromium e ainda não em um iPhone real.
 - **Legislação:** o conteúdo reflete o que a apostila trazia sobre as normas vigentes na data do edital e pode ficar desatualizado.
 
 ## Licença
 
-- **Código** (`index.html`, `styles.css`, `app.js`, `sw.js` e `manifest.webmanifest`): [licença MIT](LICENSE). Pode usar e adaptar à vontade.
-- **Questões, cartões e macetes** (`data.js`, `bank-*.js` e `extras.js`): não entram na licença MIT, porque foram escritos com base na apostila. Para reaproveitar o projeto, troque esse conteúdo pelo seu.
+- **Código** (`index.html`, `styles.css`, `app.js`, `concursos.js`, `sw.js` e `manifest.webmanifest`): [licença MIT](LICENSE). Pode usar e adaptar à vontade.
+- **Questões, cartões e macetes** (`data.js`, `bank-*.js`, `extras.js` e `pmsp-*.js`): não entram na licença MIT, porque em grande parte foram escritos com base na apostila. Para reaproveitar o projeto, troque esse conteúdo pelo seu.
 - **Fontes:** licença SIL Open Font.
 
 <div align="center">
